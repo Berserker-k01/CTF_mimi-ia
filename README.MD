@@ -26,7 +26,7 @@ L'agent est construit autour de plusieurs composants clés :
 
 ```bash
 # Cloner le dépôt
-git clone https://github.com/votre-username/ctf_mimi_ai.git
+git clone https://github.com/Berserker-k01/CTF_mimi-ia
 cd ctf_mimi_ai
 
 # Installer les dépendances
