@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_DIR="/opt/ctf_mimi_ai"
+VENV_DIR="$APP_DIR/venv"
+PYTHON="$VENV_DIR/bin/python"
+
+if [ -x "$PYTHON" ]; then
+  exec "$PYTHON" "$APP_DIR/main.py" "$@"
+else
+  echo "[CTF_mimi ai] Environnement virtuel introuvable: $PYTHON" >&2
+  echo "Veuillez exécuter le script d'installation: /opt/ctf_mimi_ai/scripts/install_kali.sh" >&2
+  exit 1
+fi

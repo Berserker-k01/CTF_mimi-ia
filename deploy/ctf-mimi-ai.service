@@ -1,0 +1,15 @@
+[Unit]
+Description=CTF_mimi ai Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/ctf_mimi_ai
+ExecStart=/opt/ctf_mimi_ai/venv/bin/python /opt/ctf_mimi_ai/main.py --daemon
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
