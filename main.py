@@ -48,6 +48,8 @@ def parse_arguments():
     parser.add_argument("--llm-model-type", default="gpt-oss", help="Type de modèle LLM (ex: gpt-oss, mistral, llama, falcon)")
     parser.add_argument("--llm-api-url", default=None, help="URL de l'API LLM (ex: http://127.0.0.1:1234/v1)")
     parser.add_argument("--llm-api-key", default=None, help="Clé API LLM si nécessaire")
+    # Mode chat
+    parser.add_argument("--chat", action="store_true", help="Activer le mode chat interactif avec exécution d'actions")
     return parser.parse_args()
 
 def main():
@@ -90,6 +92,18 @@ def main():
             logger.error(f"Erreur en mode daemon: {e}")
             raise
     else:
+        # Mode chat interactif prioritaire si demandé
+        if args.chat:
+            if not args.target:
+                # Demander une cible initiale (facultatif)
+                try:
+                    user_input = input(f"{Fore.CYAN}[CTF_mimi ai]{Style.RESET_ALL} Entrez le lien/IP/nom de domaine du challenge (Entrée pour ignorer): ").strip()
+                except EOFError:
+                    user_input = ""
+                if user_input:
+                    agent.set_target(user_input)
+            agent.chat_loop()
+            return
         # Mode interactif: si pas de --target, demander un lien/target en boucle
         if not args.target:
             while True:

@@ -592,6 +592,99 @@ class Agent:
             logger.error(f"Erreur lors de l'exécution de l'action: {str(e)}")
             result["error"] = str(e)
             return result
+
+    def chat_loop(self):
+        """
+        Mode chat interactif: discute avec le LLM et propose/exécute des actions
+        avec confirmation utilisateur.
+        """
+        self.ui.info("Mode chat interactif. Commandes: /help, /exit, /settarget <cible>")
+        while True:
+            try:
+                user_msg = self.ui.prompt("Message pour le LLM (ou commande)")
+            except EOFError:
+                break
+
+            if not user_msg:
+                continue
+
+            # Commandes spéciales
+            if user_msg.strip().lower() in ("/exit", ":q", "/quit"):
+                self.ui.info("Fin du mode chat.")
+                break
+            if user_msg.strip().lower().startswith("/settarget"):
+                parts = user_msg.split(maxsplit=1)
+                if len(parts) == 2 and parts[1].strip():
+                    self.set_target(parts[1].strip())
+                else:
+                    tgt = self.ui.prompt("Entrez la nouvelle cible (IP/Domaine/URL)")
+                    if tgt:
+                        self.set_target(tgt)
+                continue
+            if user_msg.strip().lower() in ("/help", "help", "?", "/?"):
+                self.ui.info("Commandes: /help, /exit, /settarget <cible>")
+                self.ui.info("Entrez une instruction en langage naturel, le LLM proposera une action.")
+                continue
+
+            # Préparer état courant/minimal
+            target_id = None
+            if self.target:
+                target_id = self.memory.add_target(self.target)
+            current_state = {
+                "target": self.memory.get_target_info(target_id) if target_id else {},
+                "ports": self.memory.get_target_ports(target_id) if target_id else [],
+                "vulnerabilities": self.memory.get_target_vulnerabilities(target_id) if target_id else [],
+                "action_history": self.memory.get_action_history(target_id, limit=10) if target_id else [],
+                "state": self.state
+            }
+
+            # Construire un prompt enrichi pour décision/action
+            base_prompt = self._prepare_llm_prompt(current_state)
+            chat_prompt = (
+                base_prompt
+                + "\n\nINSTRUCTION UTILISATEUR:\n"
+                + user_msg
+                + "\n\nRappelle-toi: réponds UNIQUEMENT en JSON suivant le format demandé."
+            )
+
+            if not self.llm.is_available():
+                self.ui.error("LLM indisponible. Vérifiez la configuration --llm-*.")
+                continue
+
+            self.ui.thinking("LLM en cours de réflexion...")
+            success, response_text = self.llm.generate(chat_prompt)
+            if not success:
+                self.ui.error(f"LLM erreur: {response_text}")
+                continue
+
+            # Afficher la réponse brute pour transparence
+            self.ui.info(f"Réponse LLM brute: {response_text[:500]}{'...' if len(response_text) > 500 else ''}")
+
+            # Tenter d'interpréter la réponse en action
+            try:
+                action = self._parse_llm_response(response_text)
+            except Exception as e:
+                self.ui.warning(f"Réponse non-actionnable (JSON introuvable/incorrect): {e}")
+                continue
+
+            # Confirmation utilisateur avant exécution
+            desc = action.get("description", "Action proposée")
+            tool = action.get("tool", "")
+            self.ui.action(f"Proposition: {desc} (outil: {tool})")
+            if not self.ui.prompt_yes_no("Exécuter cette action ?", default=True):
+                self.ui.info("Action annulée par l'utilisateur.")
+                continue
+
+            if target_id is None:
+                # Si aucune cible enregistrée, créer une cible générique
+                target_id = self.memory.add_target(self.context.get("target") or "unknown")
+
+            # Exécuter
+            result = self._execute(action, target_id)
+            if result.get("success"):
+                self.ui.success("Action exécutée avec succès.")
+            else:
+                self.ui.error(f"Action échouée: {result.get('error','Inconnue')}")
     
     def _parse_nmap_results(self, output: str, target_id: int):
         """

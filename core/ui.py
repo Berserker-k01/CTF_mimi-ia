@@ -165,6 +165,27 @@ class TerminalUI:
             return default
         
         return user_input
+
+    def prompt_yes_no(self, message: str, default: bool = True) -> bool:
+        """
+        Demande une confirmation oui/non à l'utilisateur.
+        
+        Args:
+            message: Message à afficher
+            default: Valeur par défaut si l'utilisateur appuie Entrée
+        Returns:
+            bool: True pour Oui, False pour Non
+        """
+        default_str = "O/n" if default else "o/N"
+        while True:
+            resp = input(f"{Fore.YELLOW}{message} [{default_str}]: {Style.RESET_ALL}").strip().lower()
+            if not resp:
+                return default
+            if resp in ("o", "oui", "y", "yes"):
+                return True
+            if resp in ("n", "non", "no"):
+                return False
+            print(f"{Fore.YELLOW}Veuillez répondre par o/oui ou n/non.{Style.RESET_ALL}")
     
     def display_target_info(self, target_info: dict):
         """
