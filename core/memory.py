@@ -11,6 +11,7 @@ import sqlite3
 import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
+from urllib.parse import urlparse
 
 logger = logging.getLogger("CTF-MIMI-AI.Memory")
 
@@ -141,24 +142,41 @@ class Memory:
         try:
             cursor = self.conn.cursor()
             now = datetime.now().isoformat()
-            
+
+            # Support des URLs comme cibles
+            ip_val = ip
+            hostname_val = hostname
+            domain_val = domain
+            try:
+                parsed = urlparse(ip)
+                if parsed.scheme in ("http", "https") and parsed.netloc:
+                    # Cible est une URL, on stocke host dans hostname/domain, ip non définie
+                    ip_val = None
+                    if not hostname_val:
+                        hostname_val = parsed.netloc
+                    if not domain_val:
+                        domain_val = parsed.netloc
+            except Exception:
+                pass
+
             cursor.execute('''
             INSERT INTO targets (ip, hostname, domain, first_seen, last_seen)
             VALUES (?, ?, ?, ?, ?)
-            ''', (ip, hostname, domain, now, now))
-            
+            ''', (ip_val, hostname_val, domain_val, now, now))
+
             self.conn.commit()
             target_id = cursor.lastrowid
-            
+
             self.current_target = target_id
             self.target_info = {
                 "id": target_id,
-                "ip": ip,
-                "hostname": hostname,
-                "domain": domain
+                "ip": ip_val,
+                "hostname": hostname_val,
+                "domain": domain_val
             }
-            
-            logger.info(f"Nouvelle cible ajoutée: {ip}")
+
+            display = ip_val or hostname_val or domain_val or ip
+            logger.info(f"Nouvelle cible ajoutée: {display}")
             return target_id
             
         except Exception as e:

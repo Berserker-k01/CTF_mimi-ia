@@ -106,10 +106,16 @@ class LLMInterface:
             
             logger.error("Échec d'initialisation du LLM: configuration invalide")
             return False
-            
         except Exception as e:
             logger.error(f"Erreur lors de l'initialisation du LLM: {str(e)}")
             return False
+
+    def is_available(self) -> bool:
+        """Retourne True si le LLM est prêt à être utilisé (initialisé ou initialisable)."""
+        if self.initialized:
+            return True
+        # Essayer une initialisation paresseuse
+        return self.initialize()
     
     def _test_api_connection(self) -> bool:
         """Teste la connexion à l'API LLM."""

@@ -26,7 +26,7 @@ L'agent est construit autour de plusieurs composants clés :
 
 ```bash
 # Cloner le dépôt
-git clone https://github.com/Berserker-k01/CTF_mimi-ia
+git clone https://github.com/votre-username/ctf_mimi_ai.git
 cd ctf_mimi_ai
 
 # Installer les dépendances
@@ -141,3 +141,30 @@ Si l’API n’est pas compatible OpenAI, vous pouvez supprimer le suffixe `/v1`
 
 ```bash
 ctf_mimi_ai --llm-model-type gpt-oss --llm-api-url http://127.0.0.1:1234
+```
+
+### Utiliser un lien (URL) comme cible
+
+Vous pouvez définir une URL de challenge directement en cible. L’agent détecte automatiquement les cibles HTTP/HTTPS et priorise un scan Web en phase de reconnaissance.
+
+Exemples:
+
+```bash
+# Lancer en CLI sur une URL de challenge
+ctf_mimi_ai --target https://chall.ctf.example.com --mode recon \
+  --llm-model-type gpt-oss --llm-api-url http://127.0.0.1:1234/v1
+
+# Cible avec port explicite
+ctf_mimi_ai --target http://10.10.11.123:8080 --mode recon
+
+# Depuis le repo sans installation système
+python main.py --target https://chall.ctf.example.com --mode recon \
+  --llm-model-type gpt-oss --llm-api-url http://127.0.0.1:1234/v1
+```
+
+Notes:
+
+- L’URL est normalisée et stockée en base; l’hôte (`netloc`) est conservé.
+- En reconnaissance sur URL, l’agent lance en premier un `web_scan` (par défaut `nikto`).
+- Assurez-vous que les outils Web nécessaires (nikto, gobuster, wpscan, etc.) sont installés sur Kali.
+- Pour des environnements non-OpenAI, utilisez `--llm-api-url http://127.0.0.1:1234` (sans `/v1`).

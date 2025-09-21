@@ -10,6 +10,7 @@ import logging
 import threading
 from typing import Dict, List, Optional, Any
 from enum import Enum
+from urllib.parse import urlparse
 
 from .shell_controller import ShellController
 from .toolbox import Toolbox
@@ -81,9 +82,22 @@ class Agent:
         Args:
             target: Cible (IP, domaine, URL)
         """
-        self.target = target
-        self.context["target"] = target
-        self.ui.info(f"Cible définie: {target}")
+        # Normaliser si c'est une URL
+        parsed = None
+        try:
+            parsed = urlparse(target)
+        except Exception:
+            parsed = None
+        if parsed and parsed.scheme in ("http", "https") and parsed.netloc:
+            self.target = target.rstrip('/')
+            self.context["target_is_url"] = True
+            self.context["target_url"] = self.target
+            self.context["target_host"] = parsed.netloc
+        else:
+            self.target = target
+            self.context["target_is_url"] = False
+        self.context["target"] = self.target
+        self.ui.info(f"Cible définie: {self.target}")
     
     def set_mode(self, mode: str):
         """
@@ -236,6 +250,15 @@ class Agent:
         state = current_state["state"]
         
         if state == AgentState.RECONNAISSANCE:
+            # Si la cible est une URL, prioriser un scan web
+            if self.context.get("target_is_url") and self.context.get("target_url"):
+                url = self.context["target_url"]
+                return {
+                    "type": "web_scan",
+                    "tool": "nikto",
+                    "params": {"url": url},
+                    "description": f"Scan de vulnérabilités web sur {url}"
+                }
             return {
                 "type": "scan",
                 "tool": "nmap",
@@ -359,11 +382,24 @@ class Agent:
         
         # Obtenir la décision du LLM
         self.ui.thinking("Consultation du LLM pour la prochaine action...")
-        response = self.llm.generate(prompt)
+        success, response_text = self.llm.generate(prompt)
+        if not success:
+            logger.error(f"Génération LLM échouée: {response_text}")
+            # Fallback action
+            self.thinking = False
+            return {
+                "type": "scan",
+                "tool": "nmap",
+                "params": {
+                    "target": self.target,
+                    "scan_type": "basic"
+                },
+                "description": f"Scan de base sur {self.target} (fallback LLM)"
+            }
         
         # Analyser la réponse du LLM
         try:
-            action = self._parse_llm_response(response)
+            action = self._parse_llm_response(response_text)
         except Exception as e:
             logger.error(f"Erreur lors de l'analyse de la réponse du LLM: {str(e)}")
             # Action par défaut en cas d'erreur

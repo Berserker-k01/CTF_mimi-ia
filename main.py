@@ -74,13 +74,15 @@ def main():
     agent = Agent(shell, toolbox, memory, llm, ui)
     
     # Démarrage de l'agent
-    if args.target:
-        agent.set_target(args.target)
-    
     agent.set_mode(args.mode)
     agent.set_verbose(args.verbose)
-    
+
     if args.daemon:
+        # En mode daemon, on ne peut pas demander une saisie interactive
+        if not args.target:
+            logger.error("Aucune cible définie en mode daemon. Utilisez --target ou configurez le service.")
+            return
+        agent.set_target(args.target)
         logger.info("Démarrage en mode daemon")
         try:
             agent.start()
@@ -88,7 +90,23 @@ def main():
             logger.error(f"Erreur en mode daemon: {e}")
             raise
     else:
-        agent.start()
+        # Mode interactif: si pas de --target, demander un lien/target en boucle
+        if not args.target:
+            while True:
+                try:
+                    user_input = input(f"{Fore.CYAN}[CTF_mimi ai]{Style.RESET_ALL} Entrez le lien/IP/nom de domaine du challenge (Entrée pour quitter): ").strip()
+                except EOFError:
+                    break
+                if not user_input:
+                    print(f"{Fore.YELLOW}Aucune cible saisie. Fin.{Style.RESET_ALL}")
+                    break
+                agent.set_target(user_input)
+                agent.start()
+                # Après la fin d'un challenge, la boucle redemande automatiquement la cible suivante
+            return
+        else:
+            agent.set_target(args.target)
+            agent.start()
 
 if __name__ == "__main__":
     try:
